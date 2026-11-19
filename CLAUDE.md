@@ -15,7 +15,8 @@ python3 responder.py doctor        # Windows: py responder.py doctor
 It is read-only and prints JSON: the config state (`missing`, `invalid`, `unpersonalized`, `setup_needed`) and
 `prerequisites`, one item per need with a `status` and a `fix` written for this OS. If Python is missing or older
 than 3.11, the command itself fails or prints how to install a newer one: do that first (step 1).
-If `setup_needed` is `false` and every prerequisite is `ok`, skip to "Working on the tool". Otherwise tell the
+If `setup_needed` is `false` and no prerequisite is `missing` (`check` and `optional` are fine), skip to
+"Working on the tool". Otherwise tell the
 user in one line what is missing and offer the guided setup below. Never copy example files over the user's
 files as a side effect.
 

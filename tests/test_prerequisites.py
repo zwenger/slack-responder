@@ -115,6 +115,12 @@ class Prerequisites(unittest.TestCase):
         self.assertEqual(items["engram"]["status"], "ok")
         self.assertEqual(items["codegraph"]["status"], "missing")
 
+    def test_unexpected_claude_status_is_reported_not_a_crash(self):
+        fake(self.bin / "claude", "echo '[1, 2]'")
+        _, items = self.doctor()
+        self.assertEqual(items["claude"]["status"], "missing")
+        self.assertIn("unexpected", items["claude"]["fix"])
+
     def test_python_fix_per_os(self):
         self.assertIn("brew", platforms.python_fix("macos"))
         self.assertIn("apt", platforms.python_fix("linux"))

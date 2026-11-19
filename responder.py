@@ -256,6 +256,8 @@ def check_claude():
         status = json.loads(subprocess.run([exe, "auth", "status"], capture_output=True, text=True, timeout=30).stdout)
     except Exception as e:
         return "missing", f"`claude auth status` failed ({e}): run it in a terminal"
+    if not isinstance(status, dict):
+        return "missing", "`claude auth status` printed something unexpected: run it in a terminal"
     return ("ok", "") if status.get("loggedIn") else ("missing", "Run `claude auth login`")
 
 
@@ -275,8 +277,17 @@ def prerequisites(cfg):
                   "fix": "" if installed else f"After the dry run: `{py} responder.py install`"})
     ok, fix = platforms.notifier_status()
     items.append({"name": "notifier", "status": "ok" if ok else "optional", "fix": fix})
-    humanizer = any(re.search(r"^name: *humanizer", p.read_text(errors="ignore"), re.M)
-                    for p in (Path.home() / ".claude" / "plugins").rglob("SKILL.md"))
+    humanizer = False
+    try:
+        for skill in (Path.home() / ".claude" / "plugins").rglob("SKILL.md"):
+            try:
+                if re.search(r"^name: *humanizer", skill.read_text(errors="ignore"), re.M):
+                    humanizer = True
+                    break
+            except OSError:
+                continue
+    except OSError:
+        pass  # unreadable plugins folder: report humanizer as optional, never crash doctor
     items.append({"name": "humanizer", "status": "ok" if humanizer else "optional",
                   "fix": "" if humanizer else "Optional: replies go out un-humanized. The humanizer skill appears by itself "
                          "when your claude.ai organization provides it"})
