@@ -1,0 +1,21 @@
+# runtime state and anything holding Slack content
+state/
+logs/
+followups.md
+followups-archive.md
+PAUSED
+DRY_RUN
+
+# machine-local tooling caches
+.atl/
+
+# local ODD task tracking (not part of the template)
+odd/
+
+# per-user configuration (see DATA_CONTRACT.md)
+config/responder.toml
+config/responder.toml.tmp
+config/context.md
+__pycache__/
+CLAUDE.local.md
+.engram/

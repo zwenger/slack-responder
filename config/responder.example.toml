@@ -1,0 +1,56 @@
+# slack-responder configuration.
+# The guided setup (open Claude Code in this folder) writes config/responder.toml for you.
+# To do it by hand: copy this file to config/responder.toml and replace every example value.
+# config/responder.toml and config/context.md are yours: they are gitignored and never updated.
+
+[owner]
+name = "Your Name"            # how prompts and replies refer to you
+slack_user_id = "U00000000"   # your Slack member ID (profile → ⋮ → Copy member ID)
+company = "Acme"
+role = "the senior developer" # "<name> is <role> at <company>"
+
+[slack]
+workspace_domain = "acme.slack.com"   # used to build message links
+
+[sources]
+mentions = true   # messages that @mention you, in any channel
+dms = true        # 1:1 DMs to you (only product, code or data questions get an answer)
+# Channels whose questions you normally answer. Add one [[sources.channels]] block per channel.
+[[sources.channels]]
+id = "C00000000"
+name = "#dev-questions"
+
+[schedule]
+days = [1, 2, 3, 4, 5]   # ISO weekdays, 1 = Monday
+start_hour = 9
+end_hour = 19            # runs while start_hour <= hour < end_hour
+interval_seconds = 300
+
+[investigation]
+repo = "~/dev/your-repo"   # local checkout the agent investigates, read-only
+engram_project = ""        # optional: Engram memory project to search (read-only)
+codegraph = false          # optional: use CodeGraph if the repo has a .codegraph index
+# Extra read-only shell commands the agent may run, as command prefixes. Explain them in context.md.
+bash = []
+# Extra MCP tools the agent may call (read-only ones only), e.g. "mcp__sentry__search_issues".
+mcp_tools = []
+
+# Logins the investigation depends on. Each is checked every run with `check` (exit 0 = OK).
+# hold = true: questions that need it wait in a queue until it works again, and you get one DM a day.
+# [[logins]]
+# name = "gcloud"
+# check = "gcloud auth print-access-token"
+# fix = "gcloud auth login --update-adc"
+# needed_for = "prod data and logs"
+# hold = true
+
+[environment]
+# Folders the timer should also search for commands (it starts with a minimal PATH, without your shell profile).
+# The guided setup fills this with the folders of claude, your tools and MCP servers, e.g. a Node version manager's bin.
+path = []
+
+[alerts]
+claude_expiry_days = 2   # DM a daily reminder this many days before the claude login expires
+
+[reply]
+footer = "_🤖 Investigated automatically by {name}'s assistant. Reply here if something looks off._"
