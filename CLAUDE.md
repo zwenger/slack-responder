@@ -9,25 +9,29 @@ Personal notes for this clone, if any, live in `CLAUDE.local.md` (gitignored).
 ## First run: check the setup (always do this first)
 
 ```bash
-python3 responder.py doctor
+python3 responder.py doctor        # Windows: py responder.py doctor
 ```
 
-It is read-only and prints JSON. If `setup_needed` is `false`, skip to "Working on the tool".
-If it is `true`, tell the user in one line what is missing (`missing`, `invalid`, `unpersonalized`) and offer
-the guided setup below. Never copy example files over the user's files as a side effect.
+It is read-only and prints JSON: the config state (`missing`, `invalid`, `unpersonalized`, `setup_needed`) and
+`prerequisites`, one item per need with a `status` and a `fix` written for this OS. If Python is missing or older
+than 3.11, the command itself fails or prints how to install a newer one: do that first (step 1).
+If `setup_needed` is `false` and every prerequisite is `ok`, skip to "Working on the tool". Otherwise tell the
+user in one line what is missing and offer the guided setup below. Never copy example files over the user's
+files as a side effect.
 
 ## Guided setup
 
 Ask one step at a time, in the user's language. Look values up yourself when a tool can (Slack connector,
 `ls`, `git`), and confirm instead of making the user type IDs.
 
-1. **Prerequisites.** Check and report, do not install anything without asking:
-   - macOS, Linux (systemd user timer or cron) or Windows (Task Scheduler); macOS is the verified one, so tell
-     Linux and Windows users they are testers. `python3` 3.11+ (`python3 --version`, `python` on Windows),
-     `claude` logged in (`claude auth status`).
-   - The Slack connector enabled in claude.ai (try `slack_search_users` for the user's own name).
-   - Optional: the `humanizer` plugin (`grep -rl '^name: *humanizer' ~/.claude/plugins`); without it replies
-     go out un-humanized.
+1. **Prerequisites.** Go through `doctor`'s `prerequisites`, one at a time:
+   - `missing`: explain what it is for, show its `fix`, and offer to run that command for the user. Run it only
+     after they agree; for commands that need `sudo` or a browser login, let the user run them. Re-run `doctor`.
+   - `check`: verify it yourself (the Slack connector: call `slack_search_users` with the user's name).
+   - `optional`: mention it once with its `fix`; the job works without it.
+   - The `timer` item stays `missing` until step 9; that is expected.
+   - macOS is the verified OS. On Linux or Windows tell the user they are testers and ask them to report what
+     fails. On Windows call Python as `py`.
 2. **Who they are.** Name, company, one-line role ("the backend lead"), Slack member ID (find it with
    `slack_search_users`), workspace domain (from any message permalink, like `acme.slack.com`).
 3. **What it listens to.** @mentions (yes/no), 1:1 DMs (yes/no; only product, code or data questions get an

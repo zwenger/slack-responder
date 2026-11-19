@@ -14,8 +14,9 @@ It runs locally with your own Claude subscription (`claude -p`) and Claude's Sla
 3. Claude checks the prerequisites, interviews you, writes `config/responder.toml` and `config/context.md`,
    runs a dry run (nothing gets posted) and installs the timer once you agree.
 
-Requirements: `python3` 3.11+, Claude Code logged in (`claude auth login`), and the Slack connector enabled in
-claude.ai. Operating systems: **macOS** is verified daily; **Linux** (systemd user timer, or cron) and **Windows**
+Requirements: Claude Code and this repo cloned. Everything else (Python 3.11+, the Claude login, the Slack connector,
+the timer for your OS, optional tools) is checked by `python3 responder.py doctor` (`py` on Windows), and the
+guided setup walks you through whatever is missing. Operating systems: **macOS** is verified daily; **Linux** (systemd user timer, or cron) and **Windows**
 (Task Scheduler) are supported but still need testers, so please report what works and what does not. Optional: the `humanizer` plugin (rewrites replies in a natural voice), Engram and CodeGraph.
 
 What is yours and what is the template: [DATA_CONTRACT.md](DATA_CONTRACT.md). Your files are gitignored, so
@@ -179,6 +180,8 @@ the same tools you do. If a tool is still not found, add its folder to `[environ
 ```
 
 To move the folder: `python3 responder.py uninstall`, `mv` it, then `python3 responder.py install` from the new place.
+There is one timer per user account: installing from another clone replaces the previous one (`doctor` shows
+which folder the installed timer runs).
 
 ## Contributing to the template
 

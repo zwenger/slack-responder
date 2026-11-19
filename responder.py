@@ -23,8 +23,12 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
+
+try:
+    import tomllib  # Python 3.11+; main() explains how to upgrade instead of failing with an ImportError
+except ModuleNotFoundError:
+    tomllib = None
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_DIR = Path(os.environ.get("RESPONDER_CONFIG_DIR") or ROOT / "config")
@@ -244,6 +248,49 @@ def rel(p):
         return str(p)
 
 
+def check_claude():
+    exe = shutil.which("claude")
+    if not exe:
+        return "missing", "`claude` is not on PATH: open a new terminal after installing Claude Code, or add its folder to PATH"
+    try:
+        status = json.loads(subprocess.run([exe, "auth", "status"], capture_output=True, text=True, timeout=30).stdout)
+    except Exception as e:
+        return "missing", f"`claude auth status` failed ({e}): run it in a terminal"
+    return ("ok", "") if status.get("loggedIn") else ("missing", "Run `claude auth login`")
+
+
+def prerequisites(cfg):
+    """What the job needs besides the config, each with its status and the fix for this OS.
+    status: ok | missing (required) | check (Claude must verify it) | optional (works without it)."""
+    import platforms
+    py = platforms.PYTHON
+    items = [{"name": "python", "status": "ok", "fix": ""}]
+    status, fix = check_claude()
+    items.append({"name": "claude", "status": status, "fix": fix})
+    items.append({"name": "slack-connector", "status": "check",
+                  "fix": "Call `slack_search_users` with the user's name. If the tool is missing or fails, enable the "
+                         "Slack connector in claude.ai (Settings → Connectors) and reconnect it"})
+    installed, detail = platforms.timer_status(ROOT)
+    items.append({"name": "timer", "status": "ok" if installed else "missing", "detail": detail,
+                  "fix": "" if installed else f"After the dry run: `{py} responder.py install`"})
+    ok, fix = platforms.notifier_status()
+    items.append({"name": "notifier", "status": "ok" if ok else "optional", "fix": fix})
+    humanizer = any(re.search(r"^name: *humanizer", p.read_text(errors="ignore"), re.M)
+                    for p in (Path.home() / ".claude" / "plugins").rglob("SKILL.md"))
+    items.append({"name": "humanizer", "status": "ok" if humanizer else "optional",
+                  "fix": "" if humanizer else "Optional: replies go out un-humanized. The humanizer skill appears by itself "
+                         "when your claude.ai organization provides it"})
+    if cfg:
+        path = os.pathsep.join([*map(str, cfg["environment"]["path"]), os.environ.get("PATH", "")])
+        for name, wanted in (("engram", cfg["investigation"]["engram_project"]), ("codegraph", cfg["investigation"]["codegraph"])):
+            if wanted:
+                found = shutil.which(name, path=path)
+                items.append({"name": name, "status": "ok" if found else "missing",
+                              "fix": "" if found else f"Install {name}, or add the folder that contains it to "
+                                     "[environment] path in config/responder.toml (the timer starts with a minimal PATH)"})
+    return items
+
+
 def cmd_doctor(_args):
     report = {"setup_needed": False, "config": str(CONFIG), "missing": [], "invalid": [], "unpersonalized": []}
     if not CONFIG.exists():
@@ -260,6 +307,12 @@ def cmd_doctor(_args):
     elif TEMPLATE_MARKER in CONTEXT.read_text():
         report["unpersonalized"].append({"path": "config/context.md", "reason": "still the template"})
     report["setup_needed"] = bool(report["missing"] or report["invalid"] or report["unpersonalized"])
+    try:
+        cfg = load()
+    except ConfigError:
+        cfg = None
+    report["prerequisites"] = prerequisites(cfg)
+    report["prerequisites_ok"] = all(p["status"] != "missing" for p in report["prerequisites"] if p["name"] in ("python", "claude"))
     print(json.dumps(report, indent=2))
     return 0
 
@@ -494,6 +547,11 @@ def cmd_run(args):
 
 
 def main(argv=None):
+    if sys.version_info < (3, 11) or tomllib is None:
+        import platforms
+        print(f"slack-responder needs Python 3.11 or newer; this is {sys.version.split()[0]}.\n{platforms.python_fix()}",
+              file=sys.stderr)
+        return 3
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("doctor", help="read-only setup check (JSON)").set_defaults(fn=cmd_doctor)

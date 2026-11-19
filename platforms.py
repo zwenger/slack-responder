@@ -191,3 +191,51 @@ def _install_windows(root, interval, dry_run):
         return 1
     print(f"installed the scheduled task {NAME}: runs every {minutes} min while you are logged in")
     return 0
+
+
+# --- prerequisite checks (used by `responder.py doctor`) ---------------------------------------------
+PYTHON = "py" if SYSTEM == "windows" else "python3"  # how to call Python in the fixes we print
+
+
+def python_fix(system=SYSTEM):
+    return {
+        "macos": "Install Python 3.11+: `brew install python@3.12` (Homebrew) or the installer from python.org",
+        "linux": "Install Python 3.11+: `sudo apt install python3` on Debian 12 / Ubuntu 24.04 or newer, "
+                 "`sudo dnf install python3` on Fedora; on older releases use `uv python install 3.12`",
+        "windows": "Install Python 3.11+: `winget install Python.Python.3.12`, then use `py` instead of `python3`",
+    }.get(system, "Install Python 3.11 or newer for your system")
+
+
+def timer_status(root):
+    """(installed, detail) for the timer `install` sets up on this OS."""
+    job = str(Path(root) / "responder.py")
+    try:
+        if SYSTEM == "macos":
+            agents = Path(os.environ.get("RESPONDER_AGENTS_DIR") or Path.home() / "Library" / "LaunchAgents")
+            plist = agents / f"{LABEL}.plist"
+            if not plist.exists():
+                return False, f"no {plist.name} in {agents}"
+            args = list(map(str, plistlib.loads(plist.read_bytes()).get("ProgramArguments", [])))
+            return job in args, "installed" if job in args else f"{plist.name} runs something else: {' '.join(args)}"
+        if SYSTEM == "linux":
+            systemctl = os.environ.get("RESPONDER_SYSTEMCTL", "systemctl")
+            if shutil.which(systemctl):
+                ok = _run("RESPONDER_SYSTEMCTL", "systemctl", "--user", "is-enabled", f"{NAME}.timer").returncode == 0
+                return ok, f"{NAME}.timer " + ("enabled" if ok else "not enabled")
+            cron = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+            ok = f"{job} run" in cron.stdout
+            return ok, "cron line present" if ok else "no systemd and no cron line"
+        if SYSTEM == "windows":
+            ok = _run("RESPONDER_SCHTASKS", "schtasks", "/Query", "/TN", NAME).returncode == 0
+            return ok, f"scheduled task {NAME} " + ("found" if ok else "not found")
+    except (OSError, plistlib.InvalidFileException) as e:
+        return False, f"could not check: {e}"
+    return False, f"no timer support for {platform.system()}"
+
+
+def notifier_status():
+    """(available, fix) for the desktop notification used when Slack cannot be reached."""
+    if SYSTEM == "linux" and not shutil.which("notify-send"):
+        return False, ("Optional: `sudo apt install libnotify-bin` (Debian/Ubuntu) or `sudo dnf install libnotify` "
+                       "(Fedora) to get a desktop notification when Slack is unreachable")
+    return True, ""
